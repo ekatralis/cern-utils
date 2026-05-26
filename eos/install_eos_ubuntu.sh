@@ -39,6 +39,8 @@ apt install -y curl gpg lsb-release
 # Setup the APT repositories holding the EOS package:
 # Import the EOS GPG key of the repository
 curl -sL http://storage-ci.web.cern.ch/storage-ci/storageci.key | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/storage-ci.gpg
+# Import xrd GPG key
+curl -L https://xrootd.web.cern.ch/repo/RPM-GPG-KEY.txt -o /etc/apt/trusted.gpg.d/xrootd.asc
 
 # Create the APT repository configuration for EOS
 echo "deb [arch=$(dpkg --print-architecture)] http://storage-ci.web.cern.ch/storage-ci/debian/eos/diopside $(lsb_release -cs) $(lsb_release -cs)/tag $(lsb_release -cs)/commit" | tee /etc/apt/sources.list.d/eos-client.list > /dev/null
