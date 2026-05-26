@@ -2,6 +2,48 @@
 
 set -euo pipefail
 
+FORCE=false
+REMOVE=false
+
+show_help() {
+cat <<EOF
+EOS installer for Ubuntu systems. Script must be run with root priviledges
+
+Usage:
+  install_eos_ubuntu.sh [OPTIONS]
+
+Options:
+  --force      Remove existing EOS configuration and reinstall
+  --remove     Remove EOS configuration and exit
+  --help       Show this help message
+
+Examples:
+  sudo ./install_eos_ubuntu.sh
+  sudo ./install_eos_ubuntu.sh --force
+  sudo ./install_eos_ubuntu.sh --remove
+EOF
+}
+
+for arg in "$@"; do
+    case "$arg" in
+        --help|-h)
+            show_help
+            exit 0
+            ;;
+        --remove)
+            REMOVE=true
+            ;;
+        --force)
+            FORCE=true
+            ;;
+        *)
+            echo "Unknown option: $arg"
+            echo "Use --help for usage information"
+            exit 1
+            ;;
+    esac
+done
+
 if [[ $EUID -ne 0 ]]; then
   echo "Run as root or with sudo"
   exit 1
@@ -14,17 +56,53 @@ else
     exit 1
 fi
 
-if ! [[ "$ID" == "ubuntu" || "$ID_LIKE" == *"ubuntu"* ]]; then
-    echo "This script only works with ubuntu based systems"
-    exit 1
-fi
+check_distro() {
+    local codename
+    codename="$(lsb_release -cs)"
 
-if [[ " $* " == *" --force "* ]]; then
+    echo "[Installer] Checking repository support for Ubuntu: ${codename}"
+
+    if ! curl -fsSL \
+        https://storage-ci.web.cern.ch/storage-ci/debian/eos/diopside/conf/distributions \
+        | grep -qw "$codename"; then
+        echo "EOS repository does not support Ubuntu codename: ${codename}"
+        return 1
+    fi
+
+    if ! curl -fsSL \
+        https://xrootd.web.cern.ch/ubuntu/conf/distributions \
+        | grep -qw "$codename"; then
+        echo "XRootD repository does not support Ubuntu codename: ${codename}"
+        return 1
+    fi
+}
+
+purge_eos() {
     systemctl stop autofs || true
     rm -rf /eos /etc/eos
     rm -f /etc/auto.eos /etc/auto.master.d/eos.autofs
     rm -f /etc/apt/sources.list.d/eos-client.list
     rm -f /etc/apt/sources.list.d/xrootd.list
+    apt purge -y eos-fusex xrootd-client || true
+    apt autoremove -y || true
+    rm -f /etc/apt/trusted.gpg.d/storage-ci.gpg
+    rm -f /etc/apt/trusted.gpg.d/xrootd.asc
+}
+
+if ! [[ "$ID" == "ubuntu" || "$ID_LIKE" == *"ubuntu"* ]]; then
+    echo "This script only works with ubuntu based systems"
+    exit 1
+fi
+
+if [[ "$REMOVE" == true ]]; then
+    purge_eos
+    systemctl restart autofs || true
+    echo "[Installer] EOS successfully removed"
+    exit 0
+fi
+
+if [[ "$FORCE" == true ]]; then
+    purge_eos
 fi
 
 if [[ -e "/eos" || -e /etc/eos || -e /etc/auto.eos || -e /etc/auto.master.d/eos.autofs ]]; then
@@ -37,11 +115,12 @@ echo "[Installer] Configuring eos repositories and installing client"
 apt update
 apt install -y curl gpg lsb-release
 
+check_distro
 # Setup the APT repositories holding the EOS package:
 # Import the EOS GPG key of the repository
 curl -sL http://storage-ci.web.cern.ch/storage-ci/storageci.key | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/storage-ci.gpg
 # Import xrd GPG key
-curl -L https://xrootd.web.cern.ch/repo/RPM-GPG-KEY.txt -o /etc/apt/trusted.gpg.d/xrootd.asc
+curl -sL https://xrootd.web.cern.ch/repo/RPM-GPG-KEY.txt -o /etc/apt/trusted.gpg.d/xrootd.asc
 
 # Create the APT repository configuration for EOS
 echo "deb [arch=$(dpkg --print-architecture)] http://storage-ci.web.cern.ch/storage-ci/debian/eos/diopside $(lsb_release -cs) $(lsb_release -cs)/tag $(lsb_release -cs)/commit" | tee /etc/apt/sources.list.d/eos-client.list > /dev/null
