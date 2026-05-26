@@ -20,6 +20,7 @@ if ! [[ "$ID" == "ubuntu" || "$ID_LIKE" == *"ubuntu"* ]]; then
 fi
 
 if [[ " $* " == *" --force "* ]]; then
+    systemctl stop autofs || true
     rm -rf /eos /etc/eos
     rm -f /etc/auto.eos /etc/auto.master.d/eos.autofs
     rm -f /etc/apt/sources.list.d/eos-client.list
@@ -117,10 +118,16 @@ systemctl restart autofs
 echo "[Installer] Installing kerberos utils"
 apt install -y krb5-user
 
-echo "[Installer] Configuring xrootd utils"
-apt install -y xrootd-client
-
 echo "[Installer] Finished configuring eos. Ensure an active kerberos token is present by running:"
 echo "[Installer] kinit yourusername@CERN.CH"
 echo "[Installer] Then ensure you can access your desired eos folder"
+
+echo "[Installer] Configuring xrootd utils"
+apt install -y xrootd-client
+
+echo "[Installer] Configured both eos and xrootd. Ensure an active kerberos token is present by running:"
+echo "[Installer] kinit yourusername@CERN.CH"
+echo "[Installer] Then ensure you can access your desired eos folder"
+
+
 
