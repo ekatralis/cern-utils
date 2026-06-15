@@ -1,0 +1,48 @@
+Host lxplus
+     HostName lxplus.cern.ch
+     User {cern-username}
+     ProxyJump none
+     GSSAPIAuthentication yes
+     GSSAPIDelegateCredentials yes
+     PubkeyAuthentication no
+     ForwardAgent yes
+     CheckHostIP no
+     ServerAliveInterval 100
+     ControlPath ~/.ssh/%r@%h:%p
+     ControlMaster auto
+     ControlPersist 30m
+
+
+Host lxtunnel
+    HostName lxtunnel.cern.ch
+    User {cern-username}
+    IdentityFile ~/.ssh/{private-ssh-key-for-lxtunnel}
+    DynamicForward 18080
+    ExitOnForwardFailure yes
+    GSSAPIAuthentication yes
+    PubkeyAuthentication yes
+    GSSAPIDelegateCredentials no
+    ForwardAgent no
+    ProxyJump none
+    CheckHostIP no
+    ControlPath ~/.ssh/%r@%h:%p
+    ControlMaster auto
+    ControlPersist 30m
+
+Host workpc
+    HostName {pc-name}.cern.ch
+    User {local-username-if-different-than-cern}
+    IdentityFile ~/.ssh/workpc-key
+    IdentitiesOnly yes
+    ProxyJump lxtunnel
+
+Host gitlab.cern.ch
+    HostName gitlab.cern.ch
+    IdentityFile ~/.ssh/{private-ssh-key-for-gitlab}
+    IdentitiesOnly yes
+    ProxyJump lxtunnel
+
+Host *.cern.ch
+    User ekatrali
+    GSSAPIAuthentication yes
+    GSSAPIDelegateCredentials yes
